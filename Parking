@@ -1,3 +1,85 @@
+
+        
+public class AddParkingSpotRunnable implements Runnable {
+    private ParkingLotManager manager;
+    private ParkingSpot spot;
+
+    public AddParkingSpotRunnable(ParkingLotManager manager, ParkingSpot spot) {
+        this.manager = manager;
+        this.spot = spot;
+    }
+
+    @Override
+    public void run() {
+        try {
+            manager.addParkingSpot(spot);
+        } catch (SpotAlreadyExistsException e) {
+            System.out.println("Error adding parking spot: " + e.getMessage());
+        }
+    }
+}
+
+
+public class ParkVehicleRunnable implements Runnable {
+    private ParkingLotManager manager;
+    private int spotId;
+    private Vehicle vehicle;
+
+    public ParkVehicleRunnable(ParkingLotManager manager, int spotId, Vehicle vehicle) {
+        this.manager = manager;
+        this.spotId = spotId;
+        this.vehicle = vehicle;
+    }
+
+    @Override
+    public void run() {
+        try {
+            manager.parkVehicle(spotId, vehicle);
+        } catch (SpotUnavailableException e) {
+            System.out.println("Error parking vehicle: " + e.getMessage());
+        }
+    }
+}
+
+
+
+public class RemoveVehicleRunnable implements Runnable {
+    private ParkingLotManager manager;
+    private int spotId;
+
+    public RemoveVehicleRunnable(ParkingLotManager manager, int spotId) {
+        this.manager = manager;
+        this.spotId = spotId;
+    }
+
+    @Override
+    public void run() {
+        try {
+            manager.removeVehicle(spotId);
+        } catch (SpotNotOccupiedException e) {
+            System.out.println("Error removing vehicle: " + e.getMessage());
+        }
+    }
+}
+
+
+
+
+public class ViewAvailableSpotsRunnable implements Runnable {
+    private ParkingLotManager manager;
+
+    public ViewAvailableSpotsRunnable(ParkingLotManager manager) {
+        this.manager = manager;
+    }
+
+    @Override
+    public void run() {
+        manager.viewAvailableSpots();
+    }
+}
+
+
+
 import java.util.ArrayList;
 import java.util.Scanner;
 
@@ -85,15 +167,6 @@ public class ParkingLotManager {
         return null;
     }
 
-    // Search spots by type
-    public void searchBySpotType(String type) {
-        for (ParkingSpot spot : parkingSpots) {
-            if (spot.getSpotType().equals(type) && !spot.isOccupied()) {
-                System.out.println(spot);
-            }
-        }
-    }
-
     // Main logic for user interaction
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -121,12 +194,16 @@ public class ParkingLotManager {
                     System.out.print("Enter price per hour: ");
                     double price = scanner.nextDouble();
                     ParkingSpot spot = new ParkingSpot(spotId, spotType, price);
+                    Runnable addSpotTask = new AddParkingSpotRunnable(manager, spot);
+                    Thread addSpotThread = new Thread(addSpotTask);
+                    addSpotThread.start();
                     try {
-                        manager.addParkingSpot(spot);
-                    } catch (SpotAlreadyExistsException e) {
-                        System.out.println(e.getMessage());
+                        addSpotThread.join(); // Ensure the spot is added before proceeding
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
                     }
                     break;
+
                 case 2:
                     System.out.print("Enter spot ID to park: ");
                     int parkSpotId = scanner.nextInt();
@@ -136,291 +213,36 @@ public class ParkingLotManager {
                     System.out.print("Enter vehicle type (motorcycle, car, truck): ");
                     String vehicleType = scanner.nextLine();
                     Vehicle vehicle = new Vehicle(licensePlate, vehicleType);
+                    Runnable parkVehicleTask = new ParkVehicleRunnable(manager, parkSpotId, vehicle);
+                    Thread parkVehicleThread = new Thread(parkVehicleTask);
+                    parkVehicleThread.start();
                     try {
-                        manager.parkVehicle(parkSpotId, vehicle);
-                    } catch (SpotUnavailableException e) {
-                        System.out.println(e.getMessage());
+                        parkVehicleThread.join(); // Ensure the vehicle is parked before proceeding
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
                     }
                     break;
+
                 case 3:
                     System.out.print("Enter spot ID to remove vehicle from: ");
                     int removeSpotId = scanner.nextInt();
+                    Runnable removeVehicleTask = new RemoveVehicleRunnable(manager, removeSpotId);
+                    Thread removeVehicleThread = new Thread(removeVehicleTask);
+                    removeVehicleThread.start();
                     try {
-                        manager.removeVehicle(removeSpotId);
-                    } catch (SpotNotOccupiedException e) {
-                        System.out.println(e.getMessage());
+                        removeVehicleThread.join(); // Ensure the vehicle is removed before proceeding
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
                     }
                     break;
+
                 case 4:
-                    System.out.println("Available parking spots:");
-                    manager.viewAvailableSpots();
+                    Runnable viewAvailableSpotsTask = new ViewAvailableSpotsRunnable(manager);
+                    Thread viewAvailableSpotsThread = new Thread(viewAvailableSpotsTask);
+                    viewAvailableSpotsThread.start();
+                    try {
+                        viewAvailableSpotsThread.join(); // Ensure the spots are viewed before proceeding
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                     break;
-                case 5:
-                    System.out.print("Enter spot ID to calculate fee: ");
-                    int feeSpotId = scanner.nextInt();
-                    System.out.print("Enter number of hours: ");
-                    int hours = scanner.nextInt();
-                    double fee = manager.calculateParkingFee(feeSpotId, hours);
-                    System.out.println("Parking Fee: " + fee);
-                    break;
-                case 6:
-                    System.out.print("Enter spot type to search for: ");
-                    String searchType = scanner.nextLine();
-                    manager.searchBySpotType(searchType);
-                    break;
-                case 7:
-                    System.out.println("Exiting...");
-                    scanner.close();
-                    return;
-                default:
-                    System.out.println("Invalid choice. Please try again.");
-            }
-        }
-    }
-}
-import java.util.Objects;
-
-public class ParkingSpot {
-    private int spotId;
-    private String spotType;
-    private boolean isOccupied;
-    private double pricePerHour;
-
-    public ParkingSpot(int spotId, String spotType, double pricePerHour) {
-        this.spotId = spotId;
-        this.spotType = spotType;
-        this.pricePerHour = pricePerHour;
-        this.isOccupied = false;
-    }
-
-    public int getSpotId() {
-        return spotId;
-    }
-
-    public String getSpotType() {
-        return spotType;
-    }
-
-    public boolean isOccupied() {
-        return isOccupied;
-    }
-
-    public double getPricePerHour() {
-        return pricePerHour;
-    }
-
-    public void park() {
-        this.isOccupied = true;
-    }
-
-    public void remove() {
-        this.isOccupied = false;
-    }
-
-    @Override
-    public String toString() {
-        return "Spot ID: " + spotId + ", Type: " + spotType + ", Price: " + pricePerHour + ", Occupied: " + isOccupied;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        ParkingSpot that = (ParkingSpot) o;
-        return spotId == that.spotId;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(spotId);
-    }
-}
-public class Vehicle {
-    private String licensePlate;
-    private String vehicleType;
-
-    public Vehicle(String licensePlate, String vehicleType) {
-        this.licensePlate = licensePlate;
-        this.vehicleType = vehicleType;
-    }
-
-    public String getLicensePlate() {
-        return licensePlate;
-    }
-
-    public String getVehicleType() {
-        return vehicleType;
-    }
-}
-import java.util.ArrayList;
-import java.util.Scanner;
-
-public class ParkingLotManager {
-    private ArrayList<ParkingSpot> parkingSpots = new ArrayList<>();
-    private ArrayList<Vehicle> parkedVehicles = new ArrayList<>();
-
-    // Add a new parking spot
-    public void addParkingSpot(ParkingSpot spot) {
-        // Check if the spot already exists
-        for (ParkingSpot existingSpot : parkingSpots) {
-            if (existingSpot.getSpotId() == spot.getSpotId()) {
-                System.out.println("Spot with ID " + spot.getSpotId() + " already exists.");
-                return;
-            }
-        }
-        parkingSpots.add(spot);
-        System.out.println("Parking spot added: " + spot);
-    }
-
-    // Park a vehicle
-    public void parkVehicle(int spotId, Vehicle vehicle) {
-        ParkingSpot spot = findSpotById(spotId);
-        if (spot == null) {
-            System.out.println("Spot not found.");
-            return;
-        }
-        if (spot.isOccupied() || !isSpotSuitableForVehicle(spot, vehicle)) {
-            System.out.println("Spot is either unavailable or unsuitable for the vehicle.");
-            return;
-        }
-        spot.park();
-        parkedVehicles.add(vehicle);
-        System.out.println("Vehicle parked in spot " + spotId);
-    }
-
-    // Remove a vehicle
-    public void removeVehicle(int spotId) {
-        ParkingSpot spot = findSpotById(spotId);
-        if (spot == null || !spot.isOccupied()) {
-            System.out.println("Spot is not occupied.");
-            return;
-        }
-        spot.remove();
-        parkedVehicles.removeIf(vehicle -> vehicle.getLicensePlate().equals(spotId));
-        System.out.println("Vehicle removed from spot " + spotId);
-    }
-
-    // View all available spots
-    public void viewAvailableSpots() {
-        for (ParkingSpot spot : parkingSpots) {
-            if (!spot.isOccupied()) {
-                System.out.println(spot);
-            }
-        }
-    }
-
-    // Calculate parking fee
-    public double calculateParkingFee(int spotId, int hours) {
-        ParkingSpot spot = findSpotById(spotId);
-        if (spot == null || !spot.isOccupied()) {
-            System.out.println("No vehicle parked at this spot.");
-            return 0.0;
-        }
-        return spot.getPricePerHour() * hours;
-    }
-
-    // Check if spot is suitable for vehicle
-    private boolean isSpotSuitableForVehicle(ParkingSpot spot, Vehicle vehicle) {
-        if (vehicle.getVehicleType().equals("motorcycle") && spot.getSpotType().equals("compact")) {
-            return true;
-        }
-        if (vehicle.getVehicleType().equals("car") && (spot.getSpotType().equals("compact") || spot.getSpotType().equals("regular"))) {
-            return true;
-        }
-        if (vehicle.getVehicleType().equals("truck") && spot.getSpotType().equals("large")) {
-            return true;
-        }
-        return false;
-    }
-
-    // Find spot by ID
-    private ParkingSpot findSpotById(int spotId) {
-        for (ParkingSpot spot : parkingSpots) {
-            if (spot.getSpotId() == spotId) {
-                return spot;
-            }
-        }
-        return null;
-    }
-
-    // Search spots by type
-    public void searchBySpotType(String type) {
-        for (ParkingSpot spot : parkingSpots) {
-            if (spot.getSpotType().equals(type) && !spot.isOccupied()) {
-                System.out.println(spot);
-            }
-        }
-    }
-
-    // Main logic for user interaction
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        ParkingLotManager manager = new ParkingLotManager();
-
-        while (true) {
-            System.out.println("\n1. Add Parking Spot");
-            System.out.println("2. Park Vehicle");
-            System.out.println("3. Remove Vehicle");
-            System.out.println("4. View Available Spots");
-            System.out.println("5. Calculate Parking Fee");
-            System.out.println("6. Search by Spot Type");
-            System.out.println("7. Exit");
-            System.out.print("Enter your choice: ");
-            int choice = scanner.nextInt();
-            scanner.nextLine();  // Consume newline
-
-            switch (choice) {
-                case 1:
-                    System.out.print("Enter spot ID: ");
-                    int spotId = scanner.nextInt();
-                    scanner.nextLine();  // Consume newline
-                    System.out.print("Enter spot type (compact, regular, large): ");
-                    String spotType = scanner.nextLine();
-                    System.out.print("Enter price per hour: ");
-                    double price = scanner.nextDouble();
-                    ParkingSpot spot = new ParkingSpot(spotId, spotType, price);
-                    manager.addParkingSpot(spot);
-                    break;
-                case 2:
-                    System.out.print("Enter spot ID to park: ");
-                    int parkSpotId = scanner.nextInt();
-                    scanner.nextLine();  // Consume newline
-                    System.out.print("Enter vehicle license plate: ");
-                    String licensePlate = scanner.nextLine();
-                    System.out.print("Enter vehicle type (motorcycle, car, truck): ");
-                    String vehicleType = scanner.nextLine();
-                    Vehicle vehicle = new Vehicle(licensePlate, vehicleType);
-                    manager.parkVehicle(parkSpotId, vehicle);
-                    break;
-                case 3:
-                    System.out.print("Enter spot ID to remove vehicle from: ");
-                    int removeSpotId = scanner.nextInt();
-                    manager.removeVehicle(removeSpotId);
-                    break;
-                case 4:
-                    System.out.println("Available parking spots:");
-                    manager.viewAvailableSpots();
-                    break;
-                case 5:
-                    System.out.print("Enter spot ID to calculate fee: ");
-                    int feeSpotId = scanner.nextInt();
-                    System.out.print("Enter number of hours: ");
-                    int hours = scanner.nextInt();
-                    double fee = manager.calculateParkingFee(feeSpotId, hours);
-                    System.out.println("Parking Fee: " + fee);
-                    break;
-                case 6:
-                    System.out.print("Enter spot type to search for: ");
-                    String searchType = scanner.nextLine();
-                    manager.searchBySpotType(searchType);
-                    break;
-                case 7:
-                    System.out.println("Exiting...");
-                    scanner.close();
-                    return;
-                default:
-                    System.out.println("Invalid choice. Please try again.");
-            }
-        }
-    }
-}
