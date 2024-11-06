@@ -1,3 +1,98 @@
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) throws InterruptedException {
+        Scanner scanner = new Scanner(System.in);
+        AirportManager airportManager = new AirportManager();
+
+        // Creating a few flights
+        Flight flight1 = new Flight(101, "LHR", "12:00 PM");
+        airportManager.addFlight(flight1);
+
+        while (true) {
+            System.out.println("Choose an operation:");
+            System.out.println("1. Check-in Bag");
+            System.out.println("2. Load Bag onto Flight");
+            System.out.println("3. Retrieve Bag");
+            System.out.println("4. View Loaded Bags on Flight");
+            System.out.println("5. Exit");
+            int choice = scanner.nextInt();
+            scanner.nextLine();  // Consume newline
+
+            switch (choice) {
+                case 1:
+                    // Check-in Bag
+                    System.out.print("Enter Bag ID: ");
+                    int bagId = scanner.nextInt();
+                    scanner.nextLine();  // Consume newline
+                    System.out.print("Enter Owner Name: ");
+                    String ownerName = scanner.nextLine();
+                    System.out.print("Enter Bag Weight (kg): ");
+                    double weight = scanner.nextDouble();
+                    scanner.nextLine();  // Consume newline
+                    System.out.print("Enter Destination (e.g., LHR): ");
+                    String destination = scanner.nextLine();
+
+                    Bag bag = new Bag(bagId, ownerName, weight, destination);
+                    Thread checkInThread = new Thread(new CheckInBag(airportManager, bag));
+                    checkInThread.start();
+                    checkInThread.join();  // Wait for the check-in to complete
+                    break;
+
+                case 2:
+                    // Load Bag onto Flight
+                    System.out.print("Enter Flight ID to load the bag onto: ");
+                    int flightIdForLoad = scanner.nextInt();
+                    System.out.print("Enter Bag ID to load: ");
+                    int bagIdForLoad = scanner.nextInt();
+                    scanner.nextLine();  // Consume newline
+
+                    Thread loadThread = new Thread(new LoadBag(airportManager, flightIdForLoad, bagIdForLoad));
+                    loadThread.start();
+                    loadThread.join();  // Wait for the loading to complete
+                    break;
+
+                case 3:
+                    // Retrieve Bag
+                    System.out.print("Enter Bag ID to retrieve: ");
+                    int bagIdForRetrieve = scanner.nextInt();
+                    scanner.nextLine();  // Consume newline
+
+                    Thread retrieveThread = new Thread(new RetrieveBag(airportManager, bagIdForRetrieve));
+                    retrieveThread.start();
+                    retrieveThread.join();  // Wait for the retrieval to complete
+                    break;
+
+                case 4:
+                    // View Loaded Bags
+                    System.out.print("Enter Flight ID to view loaded bags: ");
+                    int flightIdForView = scanner.nextInt();
+                    scanner.nextLine();  // Consume newline
+
+                    Thread viewThread = new Thread(new ViewLoadedBags(airportManager, flightIdForView));
+                    viewThread.start();
+                    viewThread.join();  // Wait for the view operation to complete
+                    break;
+
+                case 5:
+                    // Exit
+                    System.out.println("Exiting the system. Goodbye!");
+                    scanner.close();
+                    return;
+
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
 import java.util.*;
 
 public class AirportManager {
