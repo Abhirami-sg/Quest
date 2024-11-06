@@ -1,10 +1,86 @@
 
         
-public class AddParkingSpotRunnable implements Runnable {
+
+ import java.util.ArrayList;
+import java.util.List;
+
+public class ParkingLotManager {
+    private List<ParkingSpot> spots;
+
+    public ParkingLotManager() {
+        spots = new ArrayList<>();
+    }
+
+    // Add a parking spot
+    public synchronized void addParkingSpot(ParkingSpot spot) throws SpotAlreadyExistsException {
+        for (ParkingSpot s : spots) {
+            if (s.getSpotId() == spot.getSpotId()) {
+                throw new SpotAlreadyExistsException("Spot with ID " + spot.getSpotId() + " already exists.");
+            }
+        }
+        spots.add(spot);
+    }
+
+    // Park a vehicle
+    public synchronized void parkVehicle(ParkingSpot spot, Vehicle vehicle) throws SpotUnavailableException {
+        if (spot.isOccupied() || !isSpotSuitableForVehicle(spot, vehicle)) {
+            throw new SpotUnavailableException("The spot is unavailable or not suitable for this vehicle.");
+        }
+        spot.occupySpot();
+        System.out.println("Vehicle with license " + vehicle.getLicensePlate() + " parked at spot ID " + spot.getSpotId());
+    }
+
+    // Remove a vehicle
+    public synchronized void removeVehicle(ParkingSpot spot) throws SpotNotOccupiedException {
+        if (!spot.isOccupied()) {
+            throw new SpotNotOccupiedException("Spot ID " + spot.getSpotId() + " is already empty.");
+        }
+        spot.vacateSpot();
+        System.out.println("Spot ID " + spot.getSpotId() + " is now free.");
+    }
+
+    // View available spots
+    public synchronized void viewAvailableSpots() {
+        for (ParkingSpot spot : spots) {
+            if (!spot.isOccupied()) {
+                System.out.println(spot);
+            }
+        }
+    }
+
+    // Calculate parking fee
+    public double calculateParkingFee(ParkingSpot spot, int hours) {
+        if (!spot.isOccupied()) {
+            return 0;
+        }
+        return spot.getPricePerHour() * hours;
+    }
+
+    // Check if a spot is suitable for a vehicle
+    private boolean isSpotSuitableForVehicle(ParkingSpot spot, Vehicle vehicle) {
+        // Example logic based on vehicle type:
+        if (vehicle.getVehicleType().equals("motorcycle") && spot.getSpotType().equals("compact")) {
+            return true;
+        } else if (vehicle.getVehicleType().equals("car") && spot.getSpotType().equals("regular")) {
+            return true;
+        } else if (vehicle.getVehicleType().equals("truck") && spot.getSpotType().equals("large")) {
+            return true;
+        }
+        return false;
+    }
+}
+
+
+
+
+
+
+
+class AddParkingSpotTask implements Runnable {
     private ParkingLotManager manager;
     private ParkingSpot spot;
 
-    public AddParkingSpotRunnable(ParkingLotManager manager, ParkingSpot spot) {
+    public AddParkingSpotTask(ParkingLotManager manager, ParkingSpot spot) {
         this.manager = manager;
         this.spot = spot;
     }
@@ -14,61 +90,55 @@ public class AddParkingSpotRunnable implements Runnable {
         try {
             manager.addParkingSpot(spot);
         } catch (SpotAlreadyExistsException e) {
-            System.out.println("Error adding parking spot: " + e.getMessage());
+            System.out.println(e.getMessage());
         }
     }
 }
 
-
-public class ParkVehicleRunnable implements Runnable {
+class ParkVehicleTask implements Runnable {
     private ParkingLotManager manager;
-    private int spotId;
+    private ParkingSpot spot;
     private Vehicle vehicle;
 
-    public ParkVehicleRunnable(ParkingLotManager manager, int spotId, Vehicle vehicle) {
+    public ParkVehicleTask(ParkingLotManager manager, ParkingSpot spot, Vehicle vehicle) {
         this.manager = manager;
-        this.spotId = spotId;
+        this.spot = spot;
         this.vehicle = vehicle;
     }
 
     @Override
     public void run() {
         try {
-            manager.parkVehicle(spotId, vehicle);
+            manager.parkVehicle(spot, vehicle);
         } catch (SpotUnavailableException e) {
-            System.out.println("Error parking vehicle: " + e.getMessage());
+            System.out.println(e.getMessage());
         }
     }
 }
 
-
-
-public class RemoveVehicleRunnable implements Runnable {
+class RemoveVehicleTask implements Runnable {
     private ParkingLotManager manager;
-    private int spotId;
+    private ParkingSpot spot;
 
-    public RemoveVehicleRunnable(ParkingLotManager manager, int spotId) {
+    public RemoveVehicleTask(ParkingLotManager manager, ParkingSpot spot) {
         this.manager = manager;
-        this.spotId = spotId;
+        this.spot = spot;
     }
 
     @Override
     public void run() {
         try {
-            manager.removeVehicle(spotId);
+            manager.removeVehicle(spot);
         } catch (SpotNotOccupiedException e) {
-            System.out.println("Error removing vehicle: " + e.getMessage());
+            System.out.println(e.getMessage());
         }
     }
 }
 
-
-
-
-public class ViewAvailableSpotsRunnable implements Runnable {
+class ViewAvailableSpotsTask implements Runnable {
     private ParkingLotManager manager;
 
-    public ViewAvailableSpotsRunnable(ParkingLotManager manager) {
+    public ViewAvailableSpotsTask(ParkingLotManager manager) {
         this.manager = manager;
     }
 
@@ -80,169 +150,50 @@ public class ViewAvailableSpotsRunnable implements Runnable {
 
 
 
-import java.util.ArrayList;
-import java.util.Scanner;
 
-public class ParkingLotManager {
-    private ArrayList<ParkingSpot> parkingSpots = new ArrayList<>();
-    private ArrayList<Vehicle> parkedVehicles = new ArrayList<>();
 
-    // Add a new parking spot
-    public void addParkingSpot(ParkingSpot spot) throws SpotAlreadyExistsException {
-        for (ParkingSpot existingSpot : parkingSpots) {
-            if (existingSpot.getSpotId() == spot.getSpotId()) {
-                throw new SpotAlreadyExistsException("Spot with ID " + spot.getSpotId() + " already exists.");
-            }
-        }
-        parkingSpots.add(spot);
-        System.out.println("Parking spot added: " + spot);
-    }
 
-    // Park a vehicle
-    public void parkVehicle(int spotId, Vehicle vehicle) throws SpotUnavailableException {
-        ParkingSpot spot = findSpotById(spotId);
-        if (spot == null) {
-            System.out.println("Spot not found.");
-            return;
-        }
-        if (spot.isOccupied() || !isSpotSuitableForVehicle(spot, vehicle)) {
-            throw new SpotUnavailableException("Spot is either unavailable or unsuitable for the vehicle.");
-        }
-        spot.park();
-        parkedVehicles.add(vehicle);
-        System.out.println("Vehicle parked in spot " + spotId);
-    }
 
-    // Remove a vehicle
-    public void removeVehicle(int spotId) throws SpotNotOccupiedException {
-        ParkingSpot spot = findSpotById(spotId);
-        if (spot == null || !spot.isOccupied()) {
-            throw new SpotNotOccupiedException("Spot is not occupied.");
-        }
-        spot.remove();
-        parkedVehicles.removeIf(vehicle -> vehicle.getLicensePlate().equals(spotId));
-        System.out.println("Vehicle removed from spot " + spotId);
-    }
 
-    // View all available spots
-    public void viewAvailableSpots() {
-        for (ParkingSpot spot : parkingSpots) {
-            if (!spot.isOccupied()) {
-                System.out.println(spot);
-            }
-        }
-    }
-
-    // Calculate parking fee
-    public double calculateParkingFee(int spotId, int hours) {
-        ParkingSpot spot = findSpotById(spotId);
-        if (spot == null || !spot.isOccupied()) {
-            System.out.println("No vehicle parked at this spot.");
-            return 0.0;
-        }
-        return spot.getPricePerHour() * hours;
-    }
-
-    // Check if spot is suitable for vehicle
-    private boolean isSpotSuitableForVehicle(ParkingSpot spot, Vehicle vehicle) {
-        if (vehicle.getVehicleType().equals("motorcycle") && spot.getSpotType().equals("compact")) {
-            return true;
-        }
-        if (vehicle.getVehicleType().equals("car") && (spot.getSpotType().equals("compact") || spot.getSpotType().equals("regular"))) {
-            return true;
-        }
-        if (vehicle.getVehicleType().equals("truck") && spot.getSpotType().equals("large")) {
-            return true;
-        }
-        return false;
-    }
-
-    // Find spot by ID
-    private ParkingSpot findSpotById(int spotId) {
-        for (ParkingSpot spot : parkingSpots) {
-            if (spot.getSpotId() == spotId) {
-                return spot;
-            }
-        }
-        return null;
-    }
-
-    // Main logic for user interaction
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
+public class Main {
+    public static void main(String[] args) throws InterruptedException {
         ParkingLotManager manager = new ParkingLotManager();
 
-        while (true) {
-            System.out.println("\n1. Add Parking Spot");
-            System.out.println("2. Park Vehicle");
-            System.out.println("3. Remove Vehicle");
-            System.out.println("4. View Available Spots");
-            System.out.println("5. Calculate Parking Fee");
-            System.out.println("6. Search by Spot Type");
-            System.out.println("7. Exit");
-            System.out.print("Enter your choice: ");
-            int choice = scanner.nextInt();
-            scanner.nextLine();  // Consume newline
+        // Create parking spots
+        ParkingSpot spot1 = new ParkingSpot(1, "compact", 5.0);
+        ParkingSpot spot2 = new ParkingSpot(2, "regular", 10.0);
+        ParkingSpot spot3 = new ParkingSpot(3, "large", 15.0);
 
-            switch (choice) {
-                case 1:
-                    System.out.print("Enter spot ID: ");
-                    int spotId = scanner.nextInt();
-                    scanner.nextLine();  // Consume newline
-                    System.out.print("Enter spot type (compact, regular, large): ");
-                    String spotType = scanner.nextLine();
-                    System.out.print("Enter price per hour: ");
-                    double price = scanner.nextDouble();
-                    ParkingSpot spot = new ParkingSpot(spotId, spotType, price);
-                    Runnable addSpotTask = new AddParkingSpotRunnable(manager, spot);
-                    Thread addSpotThread = new Thread(addSpotTask);
-                    addSpotThread.start();
-                    try {
-                        addSpotThread.join(); // Ensure the spot is added before proceeding
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    break;
+        // Create vehicles
+        Vehicle vehicle1 = new Vehicle("ABC123", "motorcycle");
+        Vehicle vehicle2 = new Vehicle("XYZ789", "car");
 
-                case 2:
-                    System.out.print("Enter spot ID to park: ");
-                    int parkSpotId = scanner.nextInt();
-                    scanner.nextLine();  // Consume newline
-                    System.out.print("Enter vehicle license plate: ");
-                    String licensePlate = scanner.nextLine();
-                    System.out.print("Enter vehicle type (motorcycle, car, truck): ");
-                    String vehicleType = scanner.nextLine();
-                    Vehicle vehicle = new Vehicle(licensePlate, vehicleType);
-                    Runnable parkVehicleTask = new ParkVehicleRunnable(manager, parkSpotId, vehicle);
-                    Thread parkVehicleThread = new Thread(parkVehicleTask);
-                    parkVehicleThread.start();
-                    try {
-                        parkVehicleThread.join(); // Ensure the vehicle is parked before proceeding
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    break;
+        // Create threads for tasks
+        Thread addSpotThread1 = new Thread(new AddParkingSpotTask(manager, spot1));
+        Thread addSpotThread2 = new Thread(new AddParkingSpotTask(manager, spot2));
+        Thread addSpotThread3 = new Thread(new AddParkingSpotTask(manager, spot3));
 
-                case 3:
-                    System.out.print("Enter spot ID to remove vehicle from: ");
-                    int removeSpotId = scanner.nextInt();
-                    Runnable removeVehicleTask = new RemoveVehicleRunnable(manager, removeSpotId);
-                    Thread removeVehicleThread = new Thread(removeVehicleTask);
-                    removeVehicleThread.start();
-                    try {
-                        removeVehicleThread.join(); // Ensure the vehicle is removed before proceeding
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    break;
+        Thread parkVehicleThread1 = new Thread(new ParkVehicleTask(manager, spot1, vehicle1));
+        Thread parkVehicleThread2 = new Thread(new ParkVehicleTask(manager, spot2, vehicle2));
 
-                case 4:
-                    Runnable viewAvailableSpotsTask = new ViewAvailableSpotsRunnable(manager);
-                    Thread viewAvailableSpotsThread = new Thread(viewAvailableSpotsTask);
-                    viewAvailableSpotsThread.start();
-                    try {
-                        viewAvailableSpotsThread.join(); // Ensure the spots are viewed before proceeding
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    break;
+        Thread viewAvailableSpotsThread = new Thread(new ViewAvailableSpotsTask(manager));
+
+        // Start all threads
+        addSpotThread1.start();
+        addSpotThread2.start();
+        addSpotThread3.start();
+
+        addSpotThread1.join();
+        addSpotThread2.join();
+        addSpotThread3.join();
+
+        parkVehicleThread1.start();
+        parkVehicleThread2.start();
+
+        parkVehicleThread1.join();
+        parkVehicleThread2.join();
+
+        viewAvailableSpotsThread.start();
+        viewAvailableSpotsThread.join();
+    }
+}
