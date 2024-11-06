@@ -142,6 +142,152 @@ public class Main {
 
 
 
+
+
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) throws InterruptedException {
+        // Initialize the ParkingLotManager to manage the parking spots.
+        ParkingLotManager manager = new ParkingLotManager();
+        
+        // Scanner to read user input.
+        Scanner scanner = new Scanner(System.in);
+
+        while (true) {
+            // Display menu options.
+            System.out.println("\nParking Lot Management System");
+            System.out.println("1. Add Parking Spot");
+            System.out.println("2. Park Vehicle");
+            System.out.println("3. Remove Vehicle");
+            System.out.println("4. View Available Spots");
+            System.out.println("5. Calculate Parking Fee");
+            System.out.println("6. Exit");
+            System.out.print("Choose an option: ");
+            
+            int choice = scanner.nextInt();  // Read user's choice.
+
+            switch (choice) {
+                case 1:
+                    // Option to add a parking spot.
+                    System.out.print("Enter Spot ID: ");
+                    int spotId = scanner.nextInt();
+                    System.out.print("Enter Spot Type (compact, regular, large): ");
+                    String spotType = scanner.next();
+                    System.out.print("Enter Price per Hour: ");
+                    double pricePerHour = scanner.nextDouble();
+                    
+                    // Create a new ParkingSpot and attempt to add it to the manager.
+                    ParkingSpot newSpot = new ParkingSpot(spotId, spotType, pricePerHour);
+                    Thread addSpotThread = new Thread(new AddParkingSpotTask(manager, newSpot));
+                    addSpotThread.start();
+                    addSpotThread.join();  // Ensure the spot is added before continuing.
+                    break;
+                    
+                case 2:
+                    // Option to park a vehicle.
+                    System.out.print("Enter Spot ID to park: ");
+                    int parkSpotId = scanner.nextInt();
+                    System.out.print("Enter Vehicle License Plate: ");
+                    String licensePlate = scanner.next();
+                    System.out.print("Enter Vehicle Type (motorcycle, car, truck): ");
+                    String vehicleType = scanner.next();
+                    
+                    // Find the spot by ID.
+                    ParkingSpot parkSpot = null;
+                    for (ParkingSpot spot : manager.spots) {
+                        if (spot.getSpotId() == parkSpotId) {
+                            parkSpot = spot;
+                            break;
+                        }
+                    }
+                    
+                    if (parkSpot != null) {
+                        Vehicle vehicle = new Vehicle(licensePlate, vehicleType);
+                        Thread parkVehicleThread = new Thread(new ParkVehicleTask(manager, parkSpot, vehicle));
+                        parkVehicleThread.start();
+                        parkVehicleThread.join();  // Ensure the vehicle is parked before continuing.
+                    } else {
+                        System.out.println("Spot not found.");
+                    }
+                    break;
+                    
+                case 3:
+                    // Option to remove a vehicle from a parking spot.
+                    System.out.print("Enter Spot ID to remove vehicle: ");
+                    int removeSpotId = scanner.nextInt();
+                    
+                    // Find the spot by ID.
+                    ParkingSpot removeSpot = null;
+                    for (ParkingSpot spot : manager.spots) {
+                        if (spot.getSpotId() == removeSpotId) {
+                            removeSpot = spot;
+                            break;
+                        }
+                    }
+                    
+                    if (removeSpot != null) {
+                        Thread removeVehicleThread = new Thread(new RemoveVehicleTask(manager, removeSpot));
+                        removeVehicleThread.start();
+                        removeVehicleThread.join();  // Ensure the vehicle is removed before continuing.
+                    } else {
+                        System.out.println("Spot not found.");
+                    }
+                    break;
+                    
+                case 4:
+                    // Option to view available spots.
+                    Thread viewAvailableSpotsThread = new Thread(new ViewAvailableSpotsTask(manager));
+                    viewAvailableSpotsThread.start();
+                    viewAvailableSpotsThread.join();  // Ensure it completes before continuing.
+                    break;
+
+                case 5:
+                    // Option to calculate the parking fee.
+                    System.out.print("Enter Spot ID to calculate fee: ");
+                    int feeSpotId = scanner.nextInt();
+                    System.out.print("Enter Number of Hours: ");
+                    int hours = scanner.nextInt();
+                    
+                    // Find the spot by ID.
+                    ParkingSpot feeSpot = null;
+                    for (ParkingSpot spot : manager.spots) {
+                        if (spot.getSpotId() == feeSpotId) {
+                            feeSpot = spot;
+                            break;
+                        }
+                    }
+                    
+                    if (feeSpot != null) {
+                        double fee = manager.calculateParkingFee(feeSpot, hours);
+                        if (fee > 0) {
+                            System.out.println("The parking fee for " + hours + " hours is: $" + fee);
+                        } else {
+                            System.out.println("This spot is not currently occupied.");
+                        }
+                    } else {
+                        System.out.println("Spot not found.");
+                    }
+                    break;
+
+                case 6:
+                    // Exit the program.
+                    System.out.println("Exiting Parking Lot Management System.");
+                    scanner.close();
+                    System.exit(0);
+                    break;
+
+                default:
+                    System.out.println("Invalid choice! Please select a valid option.");
+            }
+        }
+    }
+}
+
+
+
+
+
         
 
  import java.util.ArrayList;
