@@ -1,3 +1,196 @@
+import java.util.*;
+
+public class AirportManager {
+    private Map<Integer, Bag> bags;
+    private Map<Integer, Flight> flights;
+
+    public AirportManager() {
+        bags = new HashMap<>();
+        flights = new HashMap<>();
+    }
+
+    public void checkInBag(int bagId, String ownerName, double weight, String destination) throws BagAlreadyCheckedInException {
+        if (bags.containsKey(bagId)) {
+            throw new BagAlreadyCheckedInException("Bag with ID " + bagId + " is already checked in.");
+        }
+        Bag newBag = new Bag(bagId, ownerName, weight, destination);
+        bags.put(bagId, newBag);
+    }
+
+    public void loadBag(int bagId, int flightId) throws UnableToLoadBagException, BagNotRetrievableException {
+        Bag bag = bags.get(bagId);
+        if (bag == null || !bag.getStatus().equals("Checked In")) {
+            throw new BagNotRetrievableException("Bag with ID " + bagId + " is not checked in.");
+        }
+        Flight flight = flights.get(flightId);
+        if (flight != null) {
+            flight.addBag(bag);
+        } else {
+            throw new UnableToLoadBagException("Flight with ID " + flightId + " does not exist.");
+        }
+    }
+
+    public void retrieveBag(int bagId) throws BagNotRetrievableException {
+        Bag bag = bags.get(bagId);
+        if (bag == null || bag.getStatus().equals("Checked In")) {
+            throw new BagNotRetrievableException("Bag with ID " + bagId + " is not loaded onto a flight.");
+        }
+        bag.setStatus("Retrieved");
+    }
+
+    public void addFlight(int flightId, String destination, String departureTime) {
+        Flight flight = new Flight(flightId, destination, departureTime);
+        flights.put(flightId, flight);
+    }
+
+    public List<Bag> viewLoadedBags(int flightId) {
+        Flight flight = flights.get(flightId);
+        if (flight != null) {
+            return flight.getLoadedBags();
+        }
+        return Collections.emptyList();
+    }
+
+    public List<Bag> searchBagsByDestination(String destination) {
+        List<Bag> result = new ArrayList<>();
+        for (Bag bag : bags.values()) {
+            if (bag.getDestination().equals(destination)) {
+                result.add(bag);
+            }
+        }
+        return result;
+    }
+}
+
+
+
+
+
+public class Main {
+    public static void main(String[] args) throws InterruptedException {
+        AirportManager manager = new AirportManager();
+
+        // Create some sample flights
+        manager.addFlight(101, "JFK", "2024-11-10 09:00");
+        manager.addFlight(102, "LHR", "2024-11-10 10:00");
+
+        // Create some bags and simulate operations
+        Thread checkInThread1 = new Thread(new CheckInBagRunnable(manager, 1, "Alice", 20.5, "JFK"));
+        Thread checkInThread2 = new Thread(new CheckInBagRunnable(manager, 2, "Bob", 25.0, "LHR"));
+        checkInThread1.start();
+        checkInThread2.start();
+        checkInThread1.join();
+        checkInThread2.join();
+
+        // Load bags onto flights
+        Thread loadThread1 = new Thread(new LoadBagRunnable(manager, 1, 101));
+        Thread loadThread2 = new Thread(new LoadBagRunnable(manager, 2, 102));
+        loadThread1.start();
+        loadThread2.start();
+        loadThread1.join();
+        loadThread2.join();
+
+        // View loaded bags
+        Thread viewLoadedThread = new Thread(new ViewLoadedBagsRunnable(manager, 101));
+        viewLoadedThread.start();
+        viewLoadedThread.join();
+
+        // Retrieve bag
+        Thread retrieveThread = new Thread(new RetrieveBagRunnable(manager, 1));
+        retrieveThread.start();
+        retrieveThread.join();
+    }
+}
+
+
+
+class CheckInBagRunnable implements Runnable {
+    private AirportManager manager;
+    private int bagId;
+    private String ownerName;
+    private double weight;
+    private String destination;
+
+    public CheckInBagRunnable(AirportManager manager, int bagId, String ownerName, double weight, String destination) {
+        this.manager = manager;
+        this.bagId = bagId;
+        this.ownerName = ownerName;
+        this.weight = weight;
+        this.destination = destination;
+    }
+
+    @Override
+    public void run() {
+        try {
+            manager.checkInBag(bagId, ownerName, weight, destination);
+            System.out.println("Bag " + bagId + " checked in successfully.");
+        } catch (BagAlreadyCheckedInException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+}
+
+class LoadBagRunnable implements Runnable {
+    private AirportManager manager;
+    private int bagId;
+    private int flightId;
+
+    public LoadBagRunnable(AirportManager manager, int bagId, int flightId) {
+        this.manager = manager;
+        this.bagId = bagId;
+        this.flightId = flightId;
+    }
+
+    @Override
+    public void run() {
+        try {
+            manager.loadBag(bagId, flightId);
+            System.out.println("Bag " + bagId + " loaded onto flight " + flightId);
+        } catch (UnableToLoadBagException | BagNotRetrievableException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+}
+
+class RetrieveBagRunnable implements Runnable {
+    private AirportManager manager;
+    private int bagId;
+
+    public RetrieveBagRunnable(AirportManager manager, int bagId) {
+        this.manager = manager;
+        this.bagId = bagId;
+    }
+
+    @Override
+    public void run() {
+        try {
+            manager.retrieveBag(bagId);
+            System.out.println("Bag " + bagId + " retrieved.");
+        } catch (BagNotRetrievableException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+}
+
+class ViewLoadedBagsRunnable implements Runnable {
+    private AirportManager manager;
+    private int flightId;
+
+    public ViewLoadedBagsRunnable(AirportManager manager, int flightId) {
+        this.manager = manager;
+        this.flightId = flightId;
+    }
+
+    @Override
+    public void run() {
+        List<Bag> loadedBags = manager.viewLoadedBags(flightId);
+        System.out.println("Loaded bags for flight " + flightId + ": " + loadedBags);
+    }
+}
+
+
+
+
 import java.util.Scanner;
 
 public class Main {
